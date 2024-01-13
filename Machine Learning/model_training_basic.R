@@ -18,9 +18,16 @@ prep_df <- train_test_split(mtcars, 0.8)
 
 
 ## 2. train model
+## boot stands for Bootstrapped
+## LOOCV stands for Leave one out cv
+## cv stands for K-Fold CV * default number is 5
+ctrl <- trainControl(method = "cv",
+                     number = 5)
+  
 model <- train(mpg ~ hp + wt + am,
                data = prep_df[[1]],
-               method = "lm")
+               method = "lm",
+               trControl = ctrl)
 
 ## 3. score model
 pred_mpg <- predict(model, newdata = prep_df[[2]])
