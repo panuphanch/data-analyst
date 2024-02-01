@@ -37,6 +37,20 @@ glm_model <- train(churn ~ numbercustomerservicecalls + totaldaycalls + totaleve
                data = train_df,
                method = "glm",
                trControl = ctrl)
+glm_model
+
+glm_training_set <- train_df %>%
+  mutate(Predicted_prob = predict(glm_model, type = "prob")$Yes) %>%
+  select(churn, Predicted_prob)
+
+pROC_train_glm <- roc(glm_training_set$churn, glm_training_set$Predicted_prob,
+                      quiet = TRUE,
+                      plot = TRUE,
+                      percent = TRUE,
+                      auc.polygon = TRUE,
+                      print.auc = TRUE,
+                      print.thres = TRUE,
+                      print.thres.best.method = "youden")
 
 
 ## 2.2 Train using KNN
@@ -50,11 +64,11 @@ knn_model <- train(
 )
 knn_model
 
-training_set <- train_df %>%
+knn_training_set <- train_df %>%
   mutate(Predicted_prob = predict(knn_model, type = "prob")$Yes) %>%
   select(churn, Predicted_prob)
 
-pROC_train <- roc(training_set$churn, training_set$Predicted_prob,
+pROC_train_knn <- roc(knn_training_set$churn, knn_training_set$Predicted_prob,
                   quiet = TRUE,
                   plot = TRUE,
                   percent = TRUE,
