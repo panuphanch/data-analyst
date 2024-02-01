@@ -1,0 +1,5 @@
+{
+    "ebook":["Getting started with Python", "Introduction to R", "SQL for Beginners"],
+    "language": ["python", "r", "sql"],
+    "amazonRating": [4.89, 4.88, 4.75]
+ }
