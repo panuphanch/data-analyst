@@ -44,9 +44,9 @@ set.seed(24) ## lock result
 k_grid <- data.frame(k = c(3, 5, 7))
 
 ctrl <- trainControl(
-  method = "cv" #"repeatedcv",
+  method = "cv", #"repeatedcv",
   number = 3,
-  number = 5, # K (5, 7, 9)
+  # number = 5, # K (5, 7, 9)
   verboseIter = TRUE, # log result each iteration (progress bar)
 )
 
