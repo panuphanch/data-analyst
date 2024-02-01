@@ -1,0 +1,160 @@
+---
+title: "Compare Logistic regression vs. KNN"
+author: "Panuphan Chaimanee"
+date: "2024-02-01"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(caret)
+library(pROC)
+```
+
+## Prepare data
+
+Load data from `churn.csv` then split data into 70% for train and 30% for test. 
+
+```{r cars}
+## Split function
+train_test_split <- function(data, size=0.7) {
+  set.seed(24)
+  n <- nrow(data)
+  train_id <- sample(1:n, size*n)
+  train_df <- data[train_id, ]
+  test_df <- data[-train_id, ]
+  return (list(train_df, test_df))
+}
+
+## Read data
+df <- read_csv("churn.csv")
+df
+
+## 1. Split
+prep_df <- train_test_split(df)
+train_df <- prep_df[[1]] %>%
+  select(churn, numbercustomerservicecalls, totaldaycalls, totalevecalls, totalnightcalls, totalintlcalls)
+test_df <- prep_df[[2]] %>%
+  select(churn, numbercustomerservicecalls, totaldaycalls, totalevecalls, totalnightcalls, totalintlcalls)
+```
+
+## Train model
+
+Use `caret` to train logistic regression and knn model.
+For train glm and knn model will setup `trainControl` to use:
+- k-fold cross-validation will be used for resampling.
+- Sets the number of folds for cross-validation to 10.
+- Repeats the entire cross-validation process 5 times.
+
+```{r, echo=FALSE}
+set.seed(24)
+ctrl <- trainControl(method = "repeatedcv",
+                     summaryFunction = defaultSummary,
+                     classProbs = TRUE,
+                     number = 10,
+                     repeats = 5)
+
+glm_model <- train(churn ~ .,
+               data = train_df,
+               method = "glm",
+               trControl = ctrl)
+knn_model <- train(churn ~ .,
+                   data = train_df,
+                   method = "knn",
+                   metric = "Accuracy",
+                   trControl = ctrl,
+                   tuneLength = 5
+)
+
+print("Result of Logistic model:")
+print(glm_model)
+print("Result of KNN model:")
+print(knn_model)
+```
+
+## Plot ROC
+
+Plot ROC compare between glm and knn:
+
+```{r, echo=FALSE}
+glm_training_set <- train_df %>%
+  mutate(Predicted_prob = predict(glm_model, type = "prob")$Yes) %>%
+  select(churn, Predicted_prob)
+
+pROC_train_glm <- roc(glm_training_set$churn, glm_training_set$Predicted_prob,
+                      quiet = TRUE,
+                      plot = TRUE,
+                      percent = TRUE,
+                      main = "Logistic model",
+                      auc.polygon = TRUE,
+                      print.auc = TRUE,
+                      print.thres = TRUE,
+                      print.thres.best.method = "youden")
+
+knn_training_set <- train_df %>%
+  mutate(Predicted_prob = predict(knn_model, type = "prob")$Yes) %>%
+  select(churn, Predicted_prob)
+
+pROC_train_knn <- roc(knn_training_set$churn, knn_training_set$Predicted_prob,
+                  quiet = TRUE,
+                  plot = TRUE,
+                  percent = TRUE,
+                  main = "KNN model",
+                  auc.polygon = TRUE,
+                  print.auc = TRUE,
+                  print.thres = TRUE,
+                  print.thres.best.method = "youden")
+```
+
+## Score & Predict
+
+```{r, echo=FALSE}
+## 3. Score
+## 3.1 Predict Churn using Logistic Regression
+pred_churn_glm <- predict(glm_model, newdata = test_df)
+
+## 3.2 Predict Churn using KNN
+pred_churn_knn <- predict(knn_model, newdata = test_df)
+
+actual_churn <- test_df$churn
+```
+
+
+## Evaluate
+
+```{r, echo=FALSE}
+## 4. Evaluate
+acc_glm <- mean(pred_churn_glm == actual_churn)
+acc_knn <- mean(pred_churn_knn == actual_churn)
+
+print(paste("Logistic accurary:", acc_glm))
+print("Logistic confusion matric:")
+confusionMatrix(factor(pred_churn_glm),
+                factor(actual_churn),
+                positive = "Yes",
+                mode = "prec_recall")
+print(paste("KNN accurary:", acc_knn))
+print("KNN confusion matric:")
+confusionMatrix(pred_churn_knn,
+                factor(actual_churn),
+                positive = "Yes",
+                mode = "prec_recall")
+```
+
+### Ovaerall
+
+- Logistic Regression: 0.868
+- KNN: 0.8653
+- Both models have similar overall accuracy, indicating a reasonable ability to correctly classify instances.
+
+### Confusion Matrices:
+
+- Logistic Regression: Successfully identifies 8 out of 202 "Yes" cases, but misses 194.
+- KNN: Fails to identify any "Yes" cases, misclassifying all 202 as "No."
+- This suggests that Logistic Regression has a better ability to detect the minority "Yes" class, albeit with a high number of false negatives.
+- Precision: Logistic Regression has a precision of 0.667, meaning that when it predicts "Yes," it's correct 66.7% of the time. KNN has undefined precision as it never predicts "Yes."
+- Recall: Logistic Regression has a recall of 0.04, indicating that it only detects 4% of the actual "Yes" cases. KNN has a recall of 0, missing all "Yes" cases.
+- F1-Score: Logistic Regression's F1-score of 0.075 balances precision and recall, but it's still quite low, suggesting a poor balance between identifying "Yes" cases and avoiding false positives. KNN's F1-score is undefined.
